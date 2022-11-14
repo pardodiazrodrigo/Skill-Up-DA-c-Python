@@ -26,11 +26,11 @@ with DAG (
     def extract():
         logging.info("INICIO DE TAREA DE EXTRACCION")
         try:
-            with open("/usr/local/airflow/include/3DUN3Feb.sql" ,"r") as sqlfile:
+            with open("include/3DUN3Feb.sql" ,"r") as sqlfile:
                 query = sqlfile.read()
             hook = PostgresHook(postgres_conn_id="alkemy_db")
             df = hook.get_pandas_df(sql=query)
-            df.to_csv("/usr/local/airflow/include/3DUN3Feb_select.csv", index=False)
+            df.to_csv("files/3DUN3Feb_select.csv", index=False)
             logging.info("CSV CREADO CORRECTAMENTE")
         except Exception as e:
             logging.exception("Exception occurred", exc_info=True)
@@ -39,7 +39,7 @@ with DAG (
     def transform():
         logging.info("INICIO DE TAREA DE TRANSFORMACION")
         try:
-            with open("/usr/local/airflow/include/3DUN3Feb_select.csv", "r", encoding="utf-8") as my_file:
+            with open("files/3DUN3Feb_select.csv", "r", encoding="utf-8") as my_file:
                 df = pd.read_csv(my_file)
             #################################### NORMALIZACION INSCRIPTION_DATE ##############################
             first_value_inscription =  df['inscription_date'].values[0]
@@ -76,7 +76,7 @@ with DAG (
             #################################### ELIMINACION DE MENORES DE 18 #################################
             df = df.loc[df["age"].between(18, 90)]
             #################################### COMPLETA CAMPO POSTAL_CODE ######################################
-            with open("/usr/local/airflow/include/codigos_postales.csv", encoding="utf-8") as my_file:
+            with open("assets/codigos_postales.csv", encoding="utf-8") as my_file:
                 dfCod = pd.read_csv(my_file)
                 dfCod = dfCod.drop_duplicates(['localidad'], keep='first')
             dfCod[["codigo_postal", "localidad"]] = dfCod[["codigo_postal", "localidad"]].astype("string")
@@ -157,9 +157,8 @@ with DAG (
             ].astype(
                 "string"
             )
-            #################################### EXPORTACION CSV ##############################################
-            df.to_csv("/usr/local/airflow/include/3DUN3Feb_select.csv", index=False) 
-            df.to_csv("/usr/local/airflow/include/3DUN3Feb_process.txt", sep="\t", index=None)
+            #################################### EXPORTACION txt ##############################################
+            df.to_csv("datasets/3DUN3Feb_process.txt", sep="\t", index=None)
             logging.info("TRANSFORMACION REALIZADA CORRECTAMENTE")
         except Exception as e:
             logging.exception("Exception occurred", exc_info=True)
@@ -175,7 +174,7 @@ with DAG (
                 aws_secret_access_key=SECRET_ACCESS_KEY,
             )
             s3 = session.resource("s3")
-            data = open("include/3DUN3Feb_process.txt", "rb")
+            data = open("datasets/3DUN3Feb_process.txt", "rb")
             s3.Bucket("alkemy-p3").put_object(
                 Key="preprocess/3DUN3Feb_process.txt", Body=data
             )
