@@ -1,0 +1,10 @@
+dag_id: "3IUNMoron_dag_etl"
+start_date: datetime(2022, 11, 3)
+max_active_runs: 5
+schedule_interval: '@daily'
+catchup: False
+uni_name: "Moron"
+owner: "P3"
+retries: 5
+retry_delay: timedelta(minutes=60)
+date_format: "%d/%m/%Y"
