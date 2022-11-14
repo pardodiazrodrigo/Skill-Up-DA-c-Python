@@ -1,0 +1,186 @@
+from datetime import datetime
+from airflow import DAG
+from airflow.providers.postgres.operators.postgres import PostgresHook
+from airflow.decorators import task
+from datetime import date
+import pandas as pd
+import logging
+import boto3
+
+default_args = {
+    'owner' : 'BriascoMarco',
+    'depends_on_past' : False,
+    'retries' : 5,
+    'schedule' : '@hourly'     # si no funciona probar 0 * * * *
+}
+
+with DAG (
+    dag_id="3D_UNUTN_dag_etl",
+    description="DAG for UNIVERSIDAD TECNOLOGICA NACIONAL",
+    default_args = default_args,
+    start_date=datetime(2022, 11, 4),
+    catchup=False
+) as dag:
+
+    @task()
+    def extract():
+        logging.info("INICIO DE TAREA DE EXTRACCION")
+        try:
+            with open("/usr/local/airflow/include/3DUNUTN.sql" ,"r") as sqlfile:
+                query = sqlfile.read()
+            hook = PostgresHook(postgres_conn_id="alkemy_db")
+            df = hook.get_pandas_df(sql=query)
+            df.to_csv("/usr/local/airflow/include/3DUNUTN_select.csv", index=False)
+            logging.info("CSV CREADO CORRECTAMENTE")
+        except Exception as e:
+            logging.exception("Exception occurred", exc_info=True)
+
+    @task()
+    def transform():
+        logging.info("INICIO DE TAREA DE TRANSFORMACION")
+        try:
+            with open("/usr/local/airflow/include/3DUNUTN_select.csv", "r", encoding="utf-8") as my_file:
+                df = pd.read_csv(my_file)
+            #################################### NORMALIZACION INSCRIPTION_DATE ##############################
+            first_value_inscription =  df['inscription_date'].values[0]
+
+            date_formats = ["%d/%b/%y", "%Y/%m/%d"]
+            for date_format in date_formats:
+                try:
+                    d = datetime.strptime(first_value_inscription, date_format)
+                    break
+                except ValueError as e:
+                    pass
+
+            df["inscription_date"] = pd.to_datetime(df["inscription_date"], format=date_format)
+
+            #################################### CALCULA EDAD DESDE FECHA DE NAC ##############################
+            first_value = df['age'].values[0]
+            
+            #date_formats = ["%d/%b/%y", "%Y/%m/%d"]
+            for date_format in date_formats:
+                try:
+                    d = datetime.strptime(first_value, date_format)
+                    break
+                except ValueError as e:
+                    pass
+            
+            df["age"] = pd.to_datetime(df["age"], format=date_format)
+
+            def datediff(x):
+                today = date.today()
+                age = today.year - x.year - ((today.month, today.day) < (x.month, x.day))
+                return age
+
+            df["age"] = df["age"].apply(datediff)
+            #################################### ELIMINACION DE MENORES DE 18 #################################
+            df = df.loc[df["age"].between(18, 90)]
+            #################################### COMPLETA CAMPO POSTAL_CODE ######################################
+            with open("/usr/local/airflow/include/codigos_postales.csv", encoding="utf-8") as my_file:
+                dfCod = pd.read_csv(my_file)
+                dfCod = dfCod.drop_duplicates(['localidad'], keep='first')
+            dfCod[["codigo_postal", "localidad"]] = dfCod[["codigo_postal", "localidad"]].astype("string")
+            df[["postal_code", "location"]] = df[["postal_code", "location"]].astype("string")
+            dfCod.rename(columns={"codigo_postal": "postal_code","localidad": "location",},inplace=True,)
+            dfCod["location"] = dfCod["location"].str.lower()
+
+            dfC = df['postal_code']
+            dfL = df['location']
+            dfC = dfC.dropna()
+            dfL = dfL.dropna()
+            TamC = dfC.size
+            TamL = dfL.size
+
+            if TamL == 0:
+                df.drop(columns=["location"],inplace=True,)
+                df["postal_code"] = df["postal_code"].astype("string")
+                df = df.merge(dfCod, on="postal_code", how="left")
+
+            if TamC == 0:
+                df.drop(columns="postal_code",inplace=True,)
+                df["location"] = df["location"].astype("string")
+
+                df = df.merge(dfCod, on="location", how="left")
+            #################################### NORMALIZACION Y DIVISION DE CAMPO LAST_NAME ##################
+            df["last_name"] = df["last_name"].astype("string")
+            df.last_name = df.last_name.str.replace("_", " ", regex=True)
+            prefixs = ["mr. ","mrs. ","miss ","dr. ",]
+            for prefix in prefixs:
+                df.last_name = df.last_name.str.removeprefix(prefix)
+            sufixs = [" md"," dds"," phd"," dvm"," jr."," ii"," iv",]
+            for sufix in sufixs:
+                df.last_name = df.last_name.str.removesuffix(sufix)
+
+            df[["first_name", "last_name"]] = df.last_name.str.split(" ", n=1, expand=True)
+            #################################### NORMALIZACION FINAL ##########################################
+            df.university = df.university.str.replace("_", " ", regex=True)
+            df.university = df.university.str.strip()
+            df.career = df.career.str.replace("_", " ", regex=True)
+            df.career = df.career.str.strip()
+            df["gender"] = df["gender"].str.lower()
+            df = df.replace({"gender": {"f": "female", "m": "male"}})
+            #df.location = df.location.str.lower()
+            df = df.reindex(
+                columns=[
+                    "university",
+                    "career",
+                    "inscription_date",
+                    "first_name",
+                    "last_name",
+                    "gender",
+                    "age",
+                    "postal_code",
+                    "location",
+                    "email",
+                ]
+            )
+            df[
+                [
+                    "university",
+                    "career",
+                    "inscription_date",
+                    "gender",
+                    "postal_code",
+                    "location",
+                    "email",
+                ]
+            ] = df[
+                [
+                    "university",
+                    "career",
+                    "inscription_date",
+                    "gender",
+                    "postal_code",
+                    "location",
+                    "email",
+                ]
+            ].astype(
+                "string"
+            )
+            #################################### EXPORTACION CSV ##############################################
+            df.to_csv("/usr/local/airflow/include/3DUNUTN_select.csv", index=False) 
+            df.to_csv("/usr/local/airflow/include/3DUNUTN_process.txt", sep="\t", index=None)
+            logging.info("TRANSFORMACION REALIZADA CORRECTAMENTE")
+        except Exception as e:
+            logging.exception("Exception occurred", exc_info=True)
+
+    @task()
+    def loads3():
+        logging.info("INICIO DE TAREA DE CARGA EN BUCKET S3")
+        try:
+            ACCESS_KEY = "AKIAY27PJEHOPCMGIA7C"
+            SECRET_ACCESS_KEY = "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"
+            session = boto3.Session(
+                aws_access_key_id=ACCESS_KEY,
+                aws_secret_access_key=SECRET_ACCESS_KEY,
+            )
+            s3 = session.resource("s3")
+            data = open("include/3DUNUTN_process.txt", "rb")
+            s3.Bucket("alkemy-p3").put_object(
+                Key="preprocess/3DUNUTN_process.txt", Body=data
+            )
+            logging.info("CARGA REALIZADA CORRECTAMENTE")
+        except Exception as e:
+            logging.exception("Exception occurred", exc_info=True)
+
+    extract() >> transform() >> loads3()
