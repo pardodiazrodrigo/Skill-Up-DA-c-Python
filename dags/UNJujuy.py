@@ -40,7 +40,7 @@ with DAG(
                 query = my_file.read()
             hook = PostgresHook(postgres_conn_id="alkemy_db")
             df = hook.get_pandas_df(sql=query)
-            df.to_csv("files/3CUJujuy_db.csv")
+            df.to_csv("files/3CUJujuy_select.csv")
             logging.info("Extraccion exitosa!")
         except Exception as e:
             logging.exception("Exception occurred", exc_info=True)
@@ -51,7 +51,7 @@ with DAG(
         #################################### 2. TRANSFORM #####################################################
         logging.info("Inicio de la transformacion!")
         try:
-            with open("files/3CUJujuy_db.csv", "r", encoding="utf-8") as my_file:
+            with open("files/3CUJujuy_select.csv", "r", encoding="utf-8") as my_file:
                 df = pd.read_csv(my_file, index_col=[0])
             
             first_value = df['age'].values[0]
@@ -196,7 +196,7 @@ with DAG(
             ###################################################################################################
 
             #################################### EXPORTACION CSV ##############################################
-            df.to_csv("datasets/3CUJujuy_select.csv")
+            df.to_csv("datasets/3CUJujuy_process.csv")
             df.to_csv(
                 "datasets/3CUJujuy_process.txt",
                 index=None,
