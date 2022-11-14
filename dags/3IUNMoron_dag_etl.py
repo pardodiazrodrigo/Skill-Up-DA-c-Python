@@ -1,0 +1,154 @@
+import pandas as pd
+from datetime import date, datetime, timedelta
+import logging
+import boto3
+
+from airflow.models import DAG
+from airflow.providers.postgres.hooks.postgres import PostgresHook
+from airflow.decorators import task
+
+# Default settings applied to all tasks
+
+default_args = {
+    "owner": "P3",
+    "retries": 5,
+    "retry_delay": timedelta(minutes=60),
+}
+
+# Instantiate DAG
+with DAG(
+    dag_id="3IUNMoron_dag_etl",
+    start_date=datetime(2022, 11, 3),
+    max_active_runs=5,
+    schedule_interval="@daily",
+    default_args=default_args,
+    catchup=False,
+) as dag:
+
+    @task()
+    def extract():
+        logging.info('EXTRACT STARTED')
+
+
+        try:
+            # Query
+            with open('include/3IUNMoron.sql','r',encoding='utf-8') as f:
+                sql_script = f.read()
+            hook = PostgresHook(postgres_conn_id="alkemy_db")
+            df = hook.get_pandas_df(sql=sql_script)
+            df.to_csv("include/files/3IUNMoron_select.csv")
+            logging.info("CSV FILE CREATED")
+
+        except Exception as e:
+            logging.error(e)
+
+
+    @task()
+    def transform():
+        logging.info('TRANSFORM STARTED')
+
+        try:
+            # DF Postal Codes
+            with open('assets/codigos_postales.csv','r',encoding='utf-8') as f:
+                cod_post_df = pd.read_csv(f)
+                cod_post_df['localidad'] =  cod_post_df['localidad'].str.lower()
+
+            # DF Universidad
+            with open("include/files/3IUNMoron_select.csv") as f:
+                df = pd.read_csv(f,index_col=[0])
+
+            # CP
+            if df['postal_code'].isnull().values.any():
+                df['postal_code'] = df['location']
+                cod_post_dict = dict(zip(cod_post_df.localidad, cod_post_df.codigo_postal))
+                df = df.replace({'postal_code':cod_post_dict})
+
+            if df['location'].isnull().values.any():
+                df['location'] = df['postal_code']
+                cod_post_dict = dict(zip(cod_post_df.codigo_postal, cod_post_df.localidad))
+                df.location = df.location.astype(int)
+                df = df.replace({'location': cod_post_dict})
+
+            # Gender
+            gender = {
+                'f':'female',
+                'm':'male',
+                'F':'female',
+                'M':'male'
+            }
+
+            df = df.replace({'gender': gender})
+
+            # Names
+            df.names = df.names.astype(str)
+
+            prefixs =[
+                "mr. ",
+                "mrs. ",
+                "miss ",
+                "dr. ",
+                "Mr. ",
+                "Mrs. ",
+                "Miss ",
+                "Dr. ",
+            ]
+
+            subfixs = [
+                ' iv',
+                ' dds',
+                ' md',
+                ' phd',
+            ]
+
+            for prefix in prefixs:
+                df.names = df.names.str.removeprefix(prefix)
+            for subfix in subfixs:
+                df.names = df.names.str.removesuffix(subfix)
+
+            df[['first_name','last_name']] = df.names.str.split(" ",n=1,expand=True)
+            df = df.drop(['names'], axis=1)
+
+            # Career
+            df.career = df.career.str.strip()
+
+            # Age
+            def age(born):
+                born = datetime.strptime(born, "%d/%m/%Y").date()
+                today = date.today()
+                age =  today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+                return age
+
+            df['age'] = df['birth_date'].apply(age)
+            df = df.drop(['birth_date'], axis=1)
+
+            df = df.loc[df["age"].between(18, 90)]
+
+            # Created Files
+            df.to_csv("include/files/3IUNMoron_process.txt",sep="\t",index=None)
+
+            logging.info('TXT AND CSV FILES CREATED')
+        except Exception as e:
+            logging.error(e)
+
+    @task()
+    def load():
+        logging.info('LOAD STARTED')
+        ACCESS_KEY = "AKIASMO2Y7NKXVBNK7QN"
+        SECRET_ACCESS_KEY = "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"
+        try:
+            session = boto3.Session(
+                aws_access_key_id=ACCESS_KEY,
+                aws_secret_access_key=SECRET_ACCESS_KEY,
+            )
+            s3 = session.resource("s3")
+            data = open("include/files/3IUNMoron_process.txt", "rb")
+            s3.Bucket("bucket-alk").put_object(
+                Key="preprocess/Moron.txt", Body=data
+            )
+
+            logging.info('LOAD SUCCESS')
+
+        except Exception as e:
+            logging.error(e)
+
+    extract() >> transform() >> load()
