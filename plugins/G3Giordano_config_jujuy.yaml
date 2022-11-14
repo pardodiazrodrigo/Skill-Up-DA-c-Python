@@ -1,0 +1,11 @@
+owner: "P3"
+retries: 5
+retry_delay: timedelta(minutes=1)
+
+dag_id: "UNJujuy"
+start_date: "datetime(2022, 11, 3)"
+max_active_runs: 5
+schedule_interval: "@hourly"
+catchup: False
+
+uni_name: "Jujuy"
