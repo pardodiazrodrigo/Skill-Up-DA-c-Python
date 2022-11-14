@@ -36,7 +36,7 @@ with DAG(
                 sql_script = f.read()
             hook = PostgresHook(postgres_conn_id="alkemy_db")
             df = hook.get_pandas_df(sql=sql_script)
-            df.to_csv("include/files/3IUNMoron_select.csv")
+            df.to_csv("files/3IUNMoron_select.csv")
             logging.info("CSV FILE CREATED")
 
         except Exception as e:
@@ -54,7 +54,7 @@ with DAG(
                 cod_post_df['localidad'] =  cod_post_df['localidad'].str.lower()
 
             # DF Universidad
-            with open("include/files/3IUNMoron_select.csv") as f:
+            with open("files/3IUNMoron_select.csv") as f:
                 df = pd.read_csv(f,index_col=[0])
 
             # CP
@@ -124,7 +124,7 @@ with DAG(
             df = df.loc[df["age"].between(18, 90)]
 
             # Created Files
-            df.to_csv("include/files/3IUNMoron_process.txt",sep="\t",index=None)
+            df.to_csv("datasets/3IUNMoron_process.txt",sep="\t",index=None)
 
             logging.info('TXT AND CSV FILES CREATED')
         except Exception as e:
@@ -141,7 +141,7 @@ with DAG(
                 aws_secret_access_key=SECRET_ACCESS_KEY,
             )
             s3 = session.resource("s3")
-            data = open("include/files/3IUNMoron_process.txt", "rb")
+            data = open("datasets/3IUNMoron_process.txt", "rb")
             s3.Bucket("bucket-alk").put_object(
                 Key="preprocess/Moron.txt", Body=data
             )
