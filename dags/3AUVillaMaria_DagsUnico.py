@@ -141,6 +141,21 @@ with DAG(
         @task()
 
         def Load():
-            pass
+            try:
+                ACCESS_KEY = "AKIAY27PJEHOPCMGIA7C"
+                SECRET_ACCESS_KEY = "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"
+                session = boto3.Session(
+                    aws_access_key_id=ACCESS_KEY,
+                    aws_secret_access_key=SECRET_ACCESS_KEY,
+                )
+                s3 = session.resource("s3")
+                data = open("datasets/3AUVillaMaria_process.txt", "rb")#####
+                s3.Bucket("alkemy-p3").put_object(
+                    Key="preprocess/3AUVillaMaria_process.txt", Body=data
+                )
+
+                logging.info('Tarea de carga EXITOSA')
+            except:
+                logging.info('ERROR al cargar')
 
         Extraction() >> Transformation() >> Load()
