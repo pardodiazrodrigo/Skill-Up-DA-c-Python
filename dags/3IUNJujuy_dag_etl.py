@@ -110,6 +110,7 @@ with DAG(
 
             # Career
             df.career = df.career.str.strip()
+            df.career = df.career.str.lower()
 
             # Age
             def age(born):
