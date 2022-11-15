@@ -7,6 +7,9 @@ from airflow.models import DAG
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.decorators import dag, task
 
+DIR = os.path.dirname(os.path.abspath(__file__))
+DIR = os.path.abspath(os.path.join(DIR, os.pardir))
+
 logging.basicConfig(level=logging.ERROR,
                     format='%(asctime)s - %(module)s - %(message)s',
                     datefmt='%Y-%m-%d')
@@ -32,21 +35,21 @@ with DAG(
     @task()
     def salvador_extract():
         with open(
-            "/home/nvrancovich/airflow/dags/Skill-Up-DA-c-Python/include/P3UNSalvador.sql", "r", encoding="utf-8"
+            f"{DIR}/include/P3UNSalvador.sql", "r", encoding="utf-8"
         ) as file:
             query = file.read()
         hook = PostgresHook(postgres_conn_id="alkemy_db")
         df = hook.get_pandas_df(sql=query)
-        df.to_csv("/home/nvrancovich/airflow/dags/Skill-Up-DA-c-Python/datasets/3BUNSalvador_select.csv")
+        df.to_csv(f"{DIR}/datasets/3BUNSalvador_select.csv")
 
     @task
     def salvador_transform():
         with open(
-            "/home/nvrancovich/airflow/dags/Skill-Up-DA-c-Python/datasets/3BUNSalvador_select.csv", "r", encoding="utf-8"
+            f"{DIR}/datasets/3BUNSalvador_select.csv", "r", encoding="utf-8"
         ) as file:
             df = pd.read_csv(file, index_col=[0])
 
-        cp = pd.read_csv('/home/nvrancovich/airflow/dags/Skill-Up-DA-c-Python/assets/codigos_postales.csv')
+        cp = pd.read_csv(f'{DIR}/assets/codigos_postales.csv')
 
         df["date_of_birth"] = pd.to_datetime(df["date_of_birth"], format="%Y-%m-%d")
 
@@ -110,7 +113,7 @@ with DAG(
                         "location", 
                         "email"])
 
-        df.to_csv("/home/nvrancovich/airflow/dags/Skill-Up-DA-c-Python/3BUNSalvador_process.txt", sep="\t", index=None)
+        df.to_csv(f"{DIR}/datasets/3BUNSalvador_process.txt", sep="\t", index=None)
 
     @task
     def salvador_load():
@@ -121,7 +124,7 @@ with DAG(
             aws_secret_access_key=SECRET_ACCESS_KEY,
         )
         s3 = session.resource("s3")
-        data = open("/home/nvrancovich/airflow/dags/Skill-Up-DA-c-Python/3BUNSalvador_process.txt", "rb")
+        data = open(f"{DIR}/datasets/3BUNSalvador_process.txt", "rb")
         s3.Bucket("alkemy-p3").put_object(
             Key="preprocess/3BUNSalvador_process.txt", Body=data
         )
