@@ -1,1 +1,0 @@
-Aqui se dejarán los archivos resultantes de la extracción de la Base de Datos
