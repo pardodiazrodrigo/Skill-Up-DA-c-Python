@@ -1,5 +1,5 @@
-import logging
 import os
+import logging
 import boto3
 import pandas as pd
 from datetime import date, datetime, timedelta
@@ -18,8 +18,6 @@ default_args = {
     "retry_delay": timedelta(minutes=60),
 }
 
-
-
 with DAG(
     'dag_universidad_del_Salvador',
     description='DAG para la Universidad Del Salvador',
@@ -33,7 +31,13 @@ with DAG(
 
     @task()
     def salvador_extract():
-        pass
+        with open(
+            "/home/nvrancovich/airflow/dags/Skill-Up-DA-c-Python/include/P3UNSalvador.sql", "r", encoding="utf-8"
+        ) as file:
+            query = file.read()
+        hook = PostgresHook(postgres_conn_id="alkemy_db")
+        df = hook.get_pandas_df(sql=query)
+        df.to_csv("/home/nvrancovich/airflow/dags/Skill-Up-DA-c-Python/datasets/3BUNSalvador_select.csv")
 
     @task
     def salvador_transform():

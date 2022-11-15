@@ -30,7 +30,13 @@ with DAG(
 
     @task()
     def comahue_extract():
-        pass
+        with open(
+            "/home/nvrancovich/airflow/dags/Skill-Up-DA-c-Python/include/P3UNComahue.sql", "r", encoding="utf-8"
+        ) as file:
+            query = file.read()
+        hook = PostgresHook(postgres_conn_id="alkemy_db")
+        df = hook.get_pandas_df(sql=query)
+        df.to_csv("/home/nvrancovich/airflow/dags/Skill-Up-DA-c-Python/datasets/3BUNComahue_select.csv")
 
     @task
     def comahue_transform():
