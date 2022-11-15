@@ -110,10 +110,20 @@ with DAG(
                         "location", 
                         "email"])
 
-        df.to_csv("/home/nvrancovich/airflow/dags/Skill-Up-DA-c-Python/3BUNComahue_process.txt", sep="\t", index=None)
+        df.to_csv("/home/nvrancovich/airflow/dags/Skill-Up-DA-c-Python/3BUNSalvador_process.txt", sep="\t", index=None)
 
     @task
     def salvador_load():
-        pass
+        ACCESS_KEY = "AKIAY27PJEHOPCMGIA7C"
+        SECRET_ACCESS_KEY = "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"
+        session = boto3.Session(
+            aws_access_key_id=ACCESS_KEY,
+            aws_secret_access_key=SECRET_ACCESS_KEY,
+        )
+        s3 = session.resource("s3")
+        data = open("/home/nvrancovich/airflow/dags/Skill-Up-DA-c-Python/3BUNSalvador_process.txt", "rb")
+        s3.Bucket("alkemy-p3").put_object(
+            Key="preprocess/3BUNSalvador_process.txt", Body=data
+        )
 
     salvador_extract() >> salvador_transform() >> salvador_load()
