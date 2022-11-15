@@ -37,12 +37,21 @@ with DAG(
     catchup=False,
     # template_searchpath="C:/Users/GYOKU/airflow/include",
     ) as dag:
-        
+        with open('include/SQL_3AUVillaMaria.sql', 'r') as myfile:
+            data = myfile.read()
 
         @task()
 
         def Extraction():
-           pass 
+            #################################### OBTENCION TABLA BASE DE DATOS ################################
+            try:
+                hook = PostgresHook(postgres_conn_id="alkemy_db")
+                df = hook.get_pandas_df(sql=data)
+                df.to_csv("files/3AUVillaMaria_select.csv")#####
+                logging.info('Tarea de extraccion EXITOSA')
+            except:
+                logging.info('ERROR al extraer')
+            ################################################################################################### 
                
         @task()
 
