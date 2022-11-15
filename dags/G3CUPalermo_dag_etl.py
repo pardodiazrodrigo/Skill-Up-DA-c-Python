@@ -4,6 +4,7 @@ import csv
 import boto3
 import pandas as pd
 from pathlib import Path
+from decouple import config
 from datetime import date, datetime, timedelta
 from airflow.models import DAG
 from airflow.providers.postgres.operators.postgres import PostgresOperator
@@ -209,8 +210,8 @@ with DAG(
     def load():
         logging.info("Inicio de la carga en bucket S3!")
         try:
-            ACCESS_KEY = "AKIAY27PJEHOPCMGIA7C"
-            SECRET_ACCESS_KEY = "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"
+            ACCESS_KEY = config("ACCESS_KEY")
+            SECRET_ACCESS_KEY = config("SECRET_ACCESS_KEY")
             session = boto3.Session(
                 aws_access_key_id=ACCESS_KEY,
                 aws_secret_access_key=SECRET_ACCESS_KEY,
