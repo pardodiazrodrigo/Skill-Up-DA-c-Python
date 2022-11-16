@@ -18,7 +18,7 @@ default_args = {
 
 # Instantiate DAG
 with DAG(
-    dag_id="3A_UVillsMaria_ETL",
+    dag_id="3A_3AUNVillaMaria_dag_etl_ETL",
     start_date=datetime(2022, 11, 3),
     max_active_runs=5,
     schedule_interval="@hourly",

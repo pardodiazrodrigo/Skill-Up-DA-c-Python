@@ -4,12 +4,15 @@ import os
 
 #file_dir = os.path.dirname(os.path.abspath(__file__))
 file_dir = os.path.dirname(os.path.abspath(f"{__file__}/../"))
+file_dir2 = os.path.dirname(os.path.abspath(f"{__file__}/../../"))
 env = Environment(loader=FileSystemLoader(file_dir))
 template = env.get_template("templates/3A_template_dag_etl.jinja2")
 
 for filename in os.listdir(file_dir):
+    #print(file_dir)
+    #print(filename)
     if filename.endswith(".yaml"):
         with open(f"{file_dir}/{filename}", "r") as configfile:
             config = yaml.safe_load(configfile)
-            with open(f"dags/{config['dag_id']}.py", "w") as f:
+            with open(f"{file_dir2}/dags/{config['dag_id']}.py", "w") as f:
                 f.write(template.render(config))
