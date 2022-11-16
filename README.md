@@ -23,6 +23,6 @@ En última instancia se armaron dags dinámicos, sobre los cuales me encuentro a
 de mi grupo han conseguido desarrollar con éxito. Ademmás se armaron python notebooks para la producción,
 la interpretacón de los datos y su visualización.
 
-Como  recursos la documentación oficial de python, apache airflow, google cloud, astronomer y aws.
+Como  recursos fueron de gran ayuda la documentación oficial de python, apache airflow, google cloud, astronomer y aws.
 Los tutoriales en youtube, y blogs de real python, geeksforgeeks, stackoverflow, stackabuse y w3, entre otros, 
 fueron de gran utilidad.
