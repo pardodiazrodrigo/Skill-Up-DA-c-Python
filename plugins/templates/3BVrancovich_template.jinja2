@@ -12,18 +12,18 @@ DIR = os.path.dirname(os.path.abspath(__file__))
 DIR = os.path.abspath(os.path.join(DIR, os.pardir))
 
 default_args = {
-    "owner": "P3",
-    "retries": 5,
-    "retry_delay": timedelta(minutes=60),
+    "owner": "{{ owner }}",
+    "retries": {{retries}},
+    "retry_delay": {{retry_delay}},
 }
 
 with DAG(
-    dag_id="3BUNComahue_dag_etl",
-    start_date=datetime(2022, 11, 3),
-    max_active_runs=5,
-    schedule_interval="@daily",
+    dag_id="{{ dag_id }}",
+    start_date={{ start_date }},
+    max_active_runs={{max_active_runs}},
+    schedule_interval="{{ schedule_interval }}",
     default_args=default_args,
-    catchup=False,
+    catchup={{catchup}},
 ) as dag:
 
     @task()
@@ -33,11 +33,11 @@ with DAG(
 
         try:
             # Query
-            with open(f'{DIR}/include/3BUNComahue.sql','r',encoding='utf-8') as f:
+            with open(f'{DIR}/include/3BUN{{uni_name}}.sql','r',encoding='utf-8') as f:
                 sql_script = f.read()
             hook = PostgresHook(postgres_conn_id="alkemy_db")
             df = hook.get_pandas_df(sql=sql_script)
-            df.to_csv(f"{DIR}/files/3BUNComahue_select.csv")
+            df.to_csv(f"{DIR}/files/3BUN{{uni_name}}_select.csv")
             logging.info("csv file created")
 
         except Exception as e:
@@ -52,7 +52,7 @@ with DAG(
             with open(f'{DIR}/assets/codigos_postales.csv','r',encoding='utf-8') as f:
                 cod_post_df = pd.read_csv(f)
 
-            with open(f"{DIR}/files/3BUNComahue_select.csv") as f:
+            with open(f"{DIR}/files/3BUN{{uni_name}}_select.csv") as f:
                 df = pd.read_csv(f,index_col=[0])
 
             if df['postal_code'].isnull().values.any():
@@ -118,7 +118,7 @@ with DAG(
             df.career = df.career.str.lower()
 
             def age(born):
-                born = datetime.strptime(born, "%Y-%m-%d").date()
+                born = datetime.strptime(born, "{{ date_format }}").date()
                 today = date.today()
                 age =  today.year - born.year - ((today.month, today.day) < (born.month, born.day))
                 return age
@@ -157,7 +157,7 @@ with DAG(
                         "location", 
                         "email"])
 
-            df.to_csv(f"{DIR}/datasets/3BUNComahue_process.txt",sep="\t",index=None)
+            df.to_csv(f"{DIR}/datasets/3BUN{{uni_name}}_process.txt",sep="\t",index=None)
 
             logging.info('txt file succesfully created')
         except Exception as e:
@@ -174,9 +174,9 @@ with DAG(
                 aws_secret_access_key=SECRET_ACCESS_KEY,
             )
             s3 = session.resource("s3")
-            data = open(f"{DIR}/datasets/3BUNComahue_process.txt", "rb")
+            data = open(f"{DIR}/datasets/3BUN{{uni_name}}_process.txt", "rb")
             s3.Bucket("bucket-alk").put_object(
-                Key="preprocess/3BUNComahue_process.txt", Body=data
+                Key="preprocess/3BUN{{uni_name}}_process.txt", Body=data
             )
 
             logging.info('txt file loading succesfully done')
