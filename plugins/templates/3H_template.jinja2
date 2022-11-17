@@ -1,0 +1,59 @@
+# [START composer_simple]
+from __future__ import print_function
+#sentence before all else
+
+
+from datetime import datetime, timedelta
+
+from airflow import models
+
+from airflow.operators import bash_operator
+from airflow.operators import python_operator
+
+
+
+default_dag_args = {
+    
+    'start_date': datetime(2022, 11, 1),
+    'retries': 5,
+}
+
+with models.DAG(
+        'composer_get_csv_P3{{ dag_id }}_extract_',
+        schedule_interval="{{ schedule_interval }}",
+        catchup={{ catchup or False }},
+        template_searchpath= 'gs://us-central1-alkemy-mydata-178a46a9-bucket/dags',
+        default_args=default_dag_args) as dag:
+    
+
+    def mss():
+        import logging
+        logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%Y-%m-%d %I:%M:%S %p')
+        logging.warning('Stamp for this event of log {{ dag_id }},')
+
+
+    log_python = python_operator.PythonOperator(
+        task_id='log',
+        python_callable=mss)
+
+
+    def greeting():
+        import logging
+        logging.info('Hello World! This is dag for {{ dag id }} data from Group 3')
+
+    
+    hello_python = python_operator.PythonOperator(
+        task_id='hello',
+        python_callable=greeting)
+
+    def extract():
+        import pandas as pd
+        url= '/home/airflow/gcs/dags/{{ dag_id }}.csv' 
+        {{ dag_id}} = pd.read_csv(url, sep = ',', encoding_errors= 'ignore')
+
+   
+    data_python = python_operator.PythonOperator(
+        task_id='dataset',
+        python_callable=extract)
+    
+    log_python >> hello_python >> data_python
