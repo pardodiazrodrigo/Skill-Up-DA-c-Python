@@ -1,0 +1,4 @@
+dag_id: 'UCI'
+schedule_interval: '@hourly'
+catchup: False
+input: 789
